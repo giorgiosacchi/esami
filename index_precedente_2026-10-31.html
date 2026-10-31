@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema di Ricerca Esami</title>
+  <style>
+    :root {
+      --b: #d8dbe2;
+      --bg: #f7f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --primary-2: #1d4ed8;
+      --warn: #b45309;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 18px; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    h1 { margin: 0 0 10px; font-size: 1.6rem; }
+    .sub { color: var(--muted); margin-bottom: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+    .card { background: var(--card); border: 1px solid var(--b); border-radius: 16px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .card h2 { margin: 0 0 10px; font-size: 1.05rem; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .col { display: flex; flex-direction: column; gap: 6px; }
+    label { font-weight: 600; font-size: .95rem; }
+    input[type="text"], input[type="url"], input[type="date"], select { width: 100%; padding: 10px 12px; border: 1px solid var(--b); border-radius: 10px; background: white; font-size: .95rem; }
+    input[type="file"] { width: 100%; padding: 8px; border: 1px dashed var(--b); border-radius: 10px; background: white; }
+    button { border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-size: .95rem; }
+    .primary { background: var(--primary); color: white; }
+    .primary:hover { background: var(--primary-2); }
+    .secondary { background: #eef2ff; color: #1e3a8a; }
+    .muted { color: var(--muted); }
+    .status { margin-top: 8px; color: var(--muted); }
+    .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 6px; }
+    .check { display: flex; gap: 8px; align-items: center; font-weight: 500; background: #fafafa; border: 1px solid var(--b); padding: 8px 10px; border-radius: 10px; }
+    .toolbar { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: .9rem; }
+    .table-wrap { overflow: auto; border: 1px solid var(--b); border-radius: 12px; background: white; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th, td { border-bottom: 1px solid #eceef2; padding: 9px 10px; text-align: left; vertical-align: top; white-space: nowrap; }
+    th { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
+    tr:hover td { background: #fafcff; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .stat { border: 1px solid var(--b); border-radius: 12px; padding: 10px; background: #fcfcfd; }
+    .stat .k { font-size: .85rem; color: var(--muted); }
+    .stat .v { font-size: 1.1rem; font-weight: 700; margin-top: 4px; }
+    .hint { font-size: .88rem; color: var(--warn); margin-top: 8px; }
+    .small { font-size: .88rem; }
+    .chart-wrap { position: relative; height: 320px; background: white; border: 1px solid var(--b); border-radius: 12px; padding: 8px; }
+    .chart-title { font-weight: 700; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Sistema di Ricerca Esami</h1>
+  <div class="sub">
+    Ricerca su più campi, filtro per intervallo di date, ordinamento, statistiche, ricerca istantanea,
+    caricamento da file locale oppure da indirizzo internet, esportazione dei risultati in Excel,
+    più grafici automatici per analizzare voti ed esami nel tempo.
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Caricamento file</h2>
+      <div class="col">
+        <label for="fileInput">Da file locale</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls" />
+      </div>
+      <div class="col" style="margin-top:10px;">
+        <label for="urlInput">Da indirizzo internet</label>
+        <input id="urlInput" type="url" placeholder="https://esempio.it/file.xlsx" />
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="loadUrlBtn" class="secondary">Carica da internet</button>
+      </div>
+      <div id="fileStatus" class="status">Nessun file caricato.</div>
+      <div class="hint">
+        Il caricamento da internet dipende dai permessi CORS del sito che ospita il file.
+        Se il sito lo blocca, usa il caricamento locale.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Campi da mostrare nei risultati</h2>
+      <div class="small muted">Tutti i campi sono selezionati di default. Se togli il flag, il campo non compare nei risultati.</div>
+      <div id="fieldsBox" class="checks"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h2>Filtri e ricerca</h2>
+    <div class="row">
+      <div class="col" style="min-width:250px; flex:1;">
+        <label for="searchText">Ricerca testuale istantanea</label>
+        <input id="searchText" type="text" placeholder="Scrivi qui e i risultati si aggiornano subito..." disabled />
+      </div>
+      <div class="col" style="min-width:250px; flex:1;">
+        <label>Campi su cui cercare</label>
+        <div id="searchFieldsBox" class="checks"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div class="col" style="min-width:180px;">
+        <label for="dateFrom">Data da</label>
+        <input id="dateFrom" type="date" disabled />
+      </div>
+      <div class="col" style="min-width:180px;">
+        <label for="dateTo">Data a</label>
+        <input id="dateTo" type="date" disabled />
+      </div>
+      <div class="col" style="min-width:230px;">
+        <label for="sortField">Ordina per</label>
+        <select id="sortField" disabled>
+          <option value="">Nessun ordinamento</option>
+          <option value="Esame">Data esame</option>
+          <option value="Voto">Voto</option>
+          <option value="Nome">Nome</option>
+          <option value="Matricola">Matricola</option>
+          <option value="Corso">Corso</option>
+        </select>
+      </div>
+      <div class="col" style="min-width:210px;">
+        <label for="sortDir">Direzione</label>
+        <select id="sortDir" disabled>
+          <option value="asc">Crescente</option>
+          <option value="desc">Decrescente</option>
+        </select>
+      </div>
+      <div class="col" style="min-width:120px; justify-content:flex-end;">
+        <label>&nbsp;</label>
+        <button id="resetBtn" class="secondary" disabled>Reset filtri</button>
+      </div>
+      <div class="col" style="min-width:160px; justify-content:flex-end;">
+        <label>&nbsp;</label>
+        <button id="exportBtn" class="primary" disabled>Esporta risultati in Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="toolbar">
+      <div class="pill" id="countBox">Occorrenze trovate: 0</div>
+      <div class="muted small" id="summaryBox">Nessun dato caricato.</div>
+    </div>
+    <div class="table-wrap">
+      <table id="resultsTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h2>Statistiche</h2>
+    <div class="stats-grid" id="statsBox">
+      <div class="stat"><div class="k">Righe totali caricate</div><div class="v">0</div></div>
+      <div class="stat"><div class="k">Risultati filtrati</div><div class="v">0</div></div>
+      <div class="stat"><div class="k">Media voto</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Voto minimo</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Voto massimo</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Data più antica</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Data più recente</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Corsi distinti</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Nomi distinti</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Distribuzione voti</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Primo corso per frequenza</div><div class="v">—</div></div>
+      <div class="stat"><div class="k">Primo nome per frequenza</div><div class="v">—</div></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px;">
+    <div class="card">
+      <h2>Grafici automatici</h2>
+      <div class="chart-title">Distribuzione dei voti</div>
+      <div class="chart-wrap"><canvas id="votesChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Istogramma dei voti</h2>
+      <div class="chart-title">Frequenza per voto</div>
+      <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h2>Curva temporale degli esami</h2>
+    <div class="chart-title">Numero di esami per data</div>
+    <div class="chart-wrap"><canvas id="timeChart"></canvas></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const BASE_FIELDS = ["Nome", "Matricola", "Voto", "Corso", "Esame"];
+    const TABLE_INDEX = "#";
+    let dataRows = [];
+    let filteredRows = [];
+    let visibleFields = [...BASE_FIELDS];
+    let searchFields = [...BASE_FIELDS];
+    let votesChart = null;
+    let histChart = null;
+    let timeChart = null;
+
+    const el = id => document.getElementById(id);
+    const fileInput = el("fileInput");
+    const urlInput = el("urlInput");
+    const loadUrlBtn = el("loadUrlBtn");
+    const fileStatus = el("fileStatus");
+    const fieldsBox = el("fieldsBox");
+    const searchFieldsBox = el("searchFieldsBox");
+    const searchText = el("searchText");
+    const dateFrom = el("dateFrom");
+    const dateTo = el("dateTo");
+    const sortField = el("sortField");
+    const sortDir = el("sortDir");
+    const resetBtn = el("resetBtn");
+    const exportBtn = el("exportBtn");
+    const countBox = el("countBox");
+    const summaryBox = el("summaryBox");
+    const thead = el("resultsTable").querySelector("thead");
+    const tbody = el("resultsTable").querySelector("tbody");
+    const statsBox = el("statsBox");
+
+    function enableControls(on) {
+      [searchText, dateFrom, dateTo, sortField, sortDir, resetBtn, exportBtn].forEach(x => x.disabled = !on);
+    }
+
+    function isPlausibleExcelDateNumber(v) {
+      return typeof v === "number" && v > 20000 && v < 70000;
+    }
+
+    function excelSerialToDate(serial) {
+      const utc_days = Math.floor(serial - 25569);
+      const utc_value = utc_days * 86400;
+      const date_info = new Date(utc_value * 1000);
+      return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
+    }
+
+    function parseItalianDateString(s) {
+      if (typeof s !== "string") return null;
+      const m = s.trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+      if (!m) return null;
+      let dd = parseInt(m[1], 10), mm = parseInt(m[2], 10), yy = parseInt(m[3], 10);
+      if (yy < 100) yy += 2000;
+      const d = new Date(yy, mm - 1, dd);
+      if (d && d.getFullYear() === yy && d.getMonth() === mm - 1 && d.getDate() === dd) return d;
+      return null;
+    }
+
+    function getExamDate(value) {
+      if (value instanceof Date && !isNaN(value)) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+      if (isPlausibleExcelDateNumber(value)) return excelSerialToDate(value);
+      const d = parseItalianDateString(value);
+      return d || null;
+    }
+
+    function formatExamValue(value) {
+      const d = getExamDate(value);
+      if (d) return d.toLocaleDateString("it-IT");
+      return value ?? "";
+    }
+
+    function formatCell(field, value) {
+      return field === "Esame" ? formatExamValue(value) : (value ?? "");
+    }
+
+    function normalizeText(v) {
+      return String(v ?? "").toLowerCase();
+    }
+
+    function numValue(v) {
+      if (typeof v === "number") return v;
+      const s = String(v ?? "").replace(",", ".").trim();
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function compareValues(a, b, field, dir) {
+      let av, bv;
+      if (field === "Esame") {
+        av = getExamDate(a[field]); bv = getExamDate(b[field]);
+        av = av ? av.getTime() : Number.POSITIVE_INFINITY;
+        bv = bv ? bv.getTime() : Number.POSITIVE_INFINITY;
+      } else if (field === "Voto") {
+        av = numValue(a[field]); bv = numValue(b[field]);
+        av = av === null ? Number.POSITIVE_INFINITY : av;
+        bv = bv === null ? Number.POSITIVE_INFINITY : bv;
+      } else {
+        av = normalizeText(a[field]); bv = normalizeText(b[field]);
+      }
+      if (av < bv) return dir === "asc" ? -1 : 1;
+      if (av > bv) return dir === "asc" ? 1 : -1;
+      return 0;
+    }
+
+    function buildChecks(container, fields, checkedValues, onChange) {
+      container.innerHTML = "";
+      fields.forEach(f => {
+        const lab = document.createElement("label");
+        lab.className = "check";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = checkedValues.includes(f);
+        cb.addEventListener("change", () => onChange(f, cb.checked));
+        const span = document.createElement("span");
+        span.textContent = f;
+        lab.appendChild(cb);
+        lab.appendChild(span);
+        container.appendChild(lab);
+      });
+    }
+
+    function refreshCheckBoxes() {
+      buildChecks(fieldsBox, BASE_FIELDS, visibleFields, (field, checked) => {
+        visibleFields = checked ? [...new Set([...visibleFields, field])] : visibleFields.filter(x => x !== field);
+        renderTable(filteredRows);
+      });
+
+      buildChecks(searchFieldsBox, BASE_FIELDS, searchFields, (field, checked) => {
+        searchFields = checked ? [...new Set([...searchFields, field])] : searchFields.filter(x => x !== field);
+        applyFilters();
+      });
+    }
+
+    function setStatus(text) { fileStatus.textContent = text; }
+
+    function setSummary() {
+      summaryBox.textContent = !dataRows.length ? "Nessun dato caricato." : "Campi visibili: " + (visibleFields.length ? visibleFields.join(", ") : "nessuno");
+    }
+
+    function renderTable(rows) {
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      const cols = [TABLE_INDEX, ...visibleFields];
+      const trh = document.createElement("tr");
+      cols.forEach(c => {
+        const th = document.createElement("th");
+        th.textContent = c;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+
+      rows.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        cols.forEach(c => {
+          const td = document.createElement("td");
+          td.textContent = c === TABLE_INDEX ? idx + 1 : formatCell(c, r[c]);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      countBox.textContent = "Occorrenze trovate: " + rows.length;
+      setSummary();
+    }
+
+    function topFrequency(rows, field) {
+      const map = new Map();
+      rows.forEach(r => {
+        const key = String(r[field] ?? "").trim();
+        if (!key) return;
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+      let best = null;
+      map.forEach((count, key) => { if (!best || count > best.count) best = { key, count }; });
+      return best ? `${best.key} (${best.count})` : "—";
+    }
+
+    function distributionVotes(rows) {
+      const map = new Map();
+      rows.forEach(r => {
+        const n = numValue(r.Voto);
+        if (n === null) return;
+        const k = String(n);
+        map.set(k, (map.get(k) || 0) + 1);
+      });
+      const arr = [...map.entries()].sort((a,b) => Number(a[0]) - Number(b[0]));
+      return arr.length ? arr.map(([k,v]) => `${k}:${v}`).join(" · ") : "—";
+    }
+
+    function updateStats() {
+      const votes = filteredRows.map(r => numValue(r.Voto)).filter(v => v !== null);
+      const dates = filteredRows.map(r => getExamDate(r.Esame)).filter(Boolean).sort((a,b) => a - b);
+      const stats = [
+        { k: "Righe totali caricate", v: String(dataRows.length) },
+        { k: "Risultati filtrati", v: String(filteredRows.length) },
+        { k: "Media voto", v: votes.length ? (votes.reduce((a,b)=>a+b,0) / votes.length).toFixed(2) : "—" },
+        { k: "Voto minimo", v: votes.length ? String(Math.min(...votes)) : "—" },
+        { k: "Voto massimo", v: votes.length ? String(Math.max(...votes)) : "—" },
+        { k: "Data più antica", v: dates.length ? dates[0].toLocaleDateString("it-IT") : "—" },
+        { k: "Data più recente", v: dates.length ? dates[dates.length - 1].toLocaleDateString("it-IT") : "—" },
+        { k: "Corsi distinti", v: String(new Set(filteredRows.map(r => String(r.Corso ?? "").trim()).filter(Boolean)).size || "—") },
+        { k: "Nomi distinti", v: String(new Set(filteredRows.map(r => String(r.Nome ?? "").trim()).filter(Boolean)).size || "—") },
+        { k: "Distribuzione voti", v: distributionVotes(filteredRows) },
+        { k: "Primo corso per frequenza", v: topFrequency(filteredRows, "Corso") },
+        { k: "Primo nome per frequenza", v: topFrequency(filteredRows, "Nome") }
+      ];
+      statsBox.innerHTML = "";
+      stats.forEach(s => {
+        const div = document.createElement("div");
+        div.className = "stat";
+        div.innerHTML = `<div class="k">${s.k}</div><div class="v">${s.v}</div>`;
+        statsBox.appendChild(div);
+      });
+    }
+
+    function getVoteCounts(rows) {
+      const map = new Map();
+      rows.forEach(r => {
+        const n = numValue(r.Voto);
+        if (n === null) return;
+        const k = String(n);
+        map.set(k, (map.get(k) || 0) + 1);
+      });
+      return [...map.entries()].sort((a,b) => Number(a[0]) - Number(b[0]));
+    }
+
+    function getTimeCounts(rows) {
+      const map = new Map();
+      rows.forEach(r => {
+        const d = getExamDate(r.Esame);
+        if (!d) return;
+        const key = d.toISOString().slice(0,10);
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+      return [...map.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+    }
+
+    function destroyChart(chart) { if (chart) chart.destroy(); }
+
+    function updateCharts() {
+      const votePairs = getVoteCounts(filteredRows);
+      const voteLabels = votePairs.map(x => x[0]);
+      const voteData = votePairs.map(x => x[1]);
+
+      const timePairs = getTimeCounts(filteredRows);
+      const timeLabels = timePairs.map(x => new Date(x[0] + "T00:00:00").toLocaleDateString("it-IT"));
+      const timeData = timePairs.map(x => x[1]);
+
+      destroyChart(votesChart); destroyChart(histChart); destroyChart(timeChart);
+
+      votesChart = new Chart(document.getElementById("votesChart"), {
+        type: "bar",
+        data: { labels: voteLabels, datasets: [{ label: "Numero di esami", data: voteData, borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+
+      histChart = new Chart(document.getElementById("histChart"), {
+        type: "line",
+        data: { labels: voteLabels, datasets: [{ label: "Istogramma voti", data: voteData, fill: false, tension: 0.15, borderWidth: 2, pointRadius: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+
+      timeChart = new Chart(document.getElementById("timeChart"), {
+        type: "line",
+        data: { labels: timeLabels, datasets: [{ label: "Esami per data", data: timeData, fill: false, tension: 0.2, borderWidth: 2, pointRadius: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    function applyFilters() {
+      if (!dataRows.length) {
+        filteredRows = [];
+        renderTable(filteredRows);
+        updateStats();
+        updateCharts();
+        return;
+      }
+
+      const text = searchText.value.trim().toLowerCase();
+      const from = dateFrom.value ? new Date(dateFrom.value + "T00:00:00") : null;
+      const to = dateTo.value ? new Date(dateTo.value + "T00:00:00") : null;
+      const sf = sortField.value;
+      const sd = sortDir.value;
+
+      filteredRows = dataRows.filter(r => {
+        const textOk = !text || (searchFields.length ? searchFields.some(field => normalizeText(formatCell(field, r[field])).includes(text)) : true);
+        let dateOk = true;
+        if (from || to) {
+          const d = getExamDate(r.Esame);
+          if (!d) dateOk = false;
+          else {
+            if (from && d < from) dateOk = false;
+            if (to && d > to) dateOk = false;
+          }
+        }
+        return textOk && dateOk;
+      });
+
+      if (sf) filteredRows.sort((a,b) => compareValues(a,b,sf,sd));
+      renderTable(filteredRows);
+      updateStats();
+      updateCharts();
+    }
+
+    function resetFilters() {
+      searchText.value = "";
+      dateFrom.value = "";
+      dateTo.value = "";
+      sortField.value = "";
+      sortDir.value = "asc";
+      searchFields = [...BASE_FIELDS];
+      visibleFields = [...BASE_FIELDS];
+      refreshCheckBoxes();
+      applyFilters();
+    }
+
+    function prepareDataRows(jsonRows) {
+      dataRows = jsonRows.map(r => {
+        const obj = {};
+        BASE_FIELDS.forEach(f => obj[f] = (r[f] ?? ""));
+        return obj;
+      });
+      filteredRows = [...dataRows];
+      visibleFields = [...BASE_FIELDS];
+      searchFields = [...BASE_FIELDS];
+      refreshCheckBoxes();
+      enableControls(true);
+      applyFilters();
+    }
+
+    async function readWorkbookFromArrayBuffer(buf, sourceLabel) {
+      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      prepareDataRows(json);
+      setStatus(`File caricato: ${sourceLabel} · Righe: ${dataRows.length}`);
+    }
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      try {
+        const buf = await file.arrayBuffer();
+        await readWorkbookFromArrayBuffer(buf, file.name);
+      } catch (e) {
+        setStatus("Errore nel caricamento del file locale: " + e.message);
+      }
+    });
+
+    loadUrlBtn.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      if (!url) {
+        setStatus("Inserisci un indirizzo internet valido.");
+        return;
+      }
+      try {
+        setStatus("Tentativo di caricamento da internet...");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const buf = await res.arrayBuffer();
+        await readWorkbookFromArrayBuffer(buf, url);
+      } catch (e) {
+        setStatus("Impossibile caricare da internet: " + e.message);
+      }
+    });
+
+    searchText.addEventListener("input", applyFilters);
+    dateFrom.addEventListener("change", applyFilters);
+    dateTo.addEventListener("change", applyFilters);
+    sortField.addEventListener("change", applyFilters);
+    sortDir.addEventListener("change", applyFilters);
+    resetBtn.addEventListener("click", resetFilters);
+
+    exportBtn.addEventListener("click", () => {
+      if (!filteredRows.length) return;
+      const cols = [TABLE_INDEX, ...visibleFields];
+      const exportRows = filteredRows.map((r, idx) => {
+        const obj = {};
+        cols.forEach(c => { obj[c] = c === TABLE_INDEX ? idx + 1 : formatCell(c, r[c]); });
+        return obj;
+      });
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Risultati");
+      XLSX.writeFile(wb, "risultati_ricerca_esami.xlsx");
+    });
+
+    refreshCheckBoxes();
+    renderTable([]);
+    updateStats();
+    updateCharts();
+  </script>
+</body>
+</html>
