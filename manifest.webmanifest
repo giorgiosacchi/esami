@@ -1,10 +1,10 @@
 {
-  "id": "./",
+  "id": "/esami/ricerca-esami",
   "name": "Sistema di Ricerca Esami",
   "short_name": "Ricerca Esami",
   "lang": "it",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "./index.html?app=ricerca-esami",
+  "scope": "/esami/",
   "display": "standalone",
   "background_color": "#f7f8fb",
   "theme_color": "#f7f8fb",

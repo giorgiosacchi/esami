@@ -1,7 +1,7 @@
 /* Memorizza soltanto il programma e le sue icone, mai i file degli esami. */
 const APP_ROOT = new URL("./", self.registration.scope);
 const PREFIX = "ricerca-esami:" + APP_ROOT.href + ":";
-const CACHE = PREFIX + "17232200fc14";
+const CACHE = PREFIX + "4b9a67f4c694";
 const APP_URL = new URL("index.html", APP_ROOT).href;
 const FILES = ["index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]
   .map(path => new URL(path, APP_ROOT).href);

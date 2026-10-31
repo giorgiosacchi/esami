@@ -22,7 +22,7 @@
       document.querySelector('meta[name="theme-color"]').content =
         theme === "dark" ? "#0f172a" : "#f7f8fb";
       if (location.protocol === "https:" || location.protocol === "http:") {
-        document.getElementById("appManifest").href = "./manifest.webmanifest";
+        document.getElementById("appManifest").href = "./manifest.webmanifest?v=esami-install-1";
       }
     })();
   </script>
